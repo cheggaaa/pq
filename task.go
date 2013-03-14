@@ -1,4 +1,4 @@
-package queue
+package pq
 
 // task interface
 type Task interface {

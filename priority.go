@@ -1,4 +1,4 @@
-package queue
+package pq
 
 // is a wrapper for Task
 type item struct {

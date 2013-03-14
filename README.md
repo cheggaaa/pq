@@ -16,18 +16,15 @@ go get -u github.com/cheggaaa/pq
 package main
 
 import (
-  "fmt"
+  	"fmt"
 	"github.com/cheggaaa/pq"
 	"sync"
 	"time"
 )
 
 type HardWork struct {
-	// task name
 	name string
-	// how urgently we need to get the results
 	priority int
-	// how work is hard
 	duration int
 }
 
@@ -65,7 +62,7 @@ var ToDo = []*HardWork{
 	},
 	{
 		name:     "Sing a song",
-		priority: 100, // very urgently :-)
+		priority: 100, // very important :-)
 		duration: 10,
 	},
 	{

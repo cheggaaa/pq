@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"runtime"
+	"log"
 )
 
 var ErrQueueNotStarted = fmt.Errorf("Queue not started or closed")
@@ -46,12 +47,40 @@ func (q *Queue) AddFunc(f func(), priority int) (err error) {
 	return q.AddTask(task)
 }
 
-func (q *Queue) AddFuncAndWait(f func(), priority int) (err error) {
+func (q *Queue) WaitFunc(f func(), priority int) (err error) {
 	task := &funcTask{
 		f : f,
 		p : priority,
 	}
-	return q.AddTaskAndWait(task)
+	return q.WaitTask(task)
+}
+
+func (q *Queue) AddGroup(tasks []Task) (err error) {
+	for _, t := range tasks {
+		if err = q.AddTask(t); err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (q *Queue) WaitGroup(tasks []Task) (err error) {
+	if len(tasks) == 0 {
+		return
+	}
+	done := make(chan bool)
+	for _, t := range tasks {
+		it := &item{task:t, done:done}
+		if err = q.addItem(it); err != nil {
+			return
+		}
+	}
+	l := len(tasks)
+	for l > 0 {
+		<- done
+		l--
+	}
+	return
 }
 
 func (q *Queue) AddTask(task Task) (err error) {
@@ -59,7 +88,7 @@ func (q *Queue) AddTask(task Task) (err error) {
 	return q.addItem(it)
 }
 
-func (q *Queue) AddTaskAndWait(task Task) (err error) {
+func (q *Queue) WaitTask(task Task) (err error) {
 	// add
 	it := &item{task:task, done:make(chan bool)}
 	if err = q.addItem(it); err != nil {
@@ -106,8 +135,8 @@ func (q *Queue) dispatcher() {
 			break
 		}
 		it := heap.Pop(&q.pq)
-		q.m.Unlock()
 		q.work <- it.(*item)
+		q.m.Unlock()	
 	}
 }
 
@@ -115,12 +144,24 @@ func (q *Queue) worker() {
 	q.wg.Add(1)
 	defer q.wg.Done()
 	for it := range q.work {
-		atomic.AddInt32(&q.taskRunning, 1)
-		it.task.Run()
-		atomic.AddInt32(&q.taskRunning, -1)
-		if it.done != nil {
-			it.done <- true
+		q.runTask(it)
+	}
+}
+
+func (q *Queue) runTask(it *item) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PQ. Panic while executing task: %v", r)
+			if it.done != nil {
+				it.done <- true
+			}
 		}
+	}()
+	atomic.AddInt32(&q.taskRunning, 1)
+	defer atomic.AddInt32(&q.taskRunning, -1)
+	it.task.Run()
+	if it.done != nil {
+		it.done <- true
 	}
 }
 

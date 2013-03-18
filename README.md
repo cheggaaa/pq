@@ -17,8 +17,7 @@ package main
 
 import (
 	"fmt"
-	//"github.com/cheggaaa/pq"
-	"pq"
+	"github.com/cheggaaa/pq"
 	"time"
 )
 
@@ -34,7 +33,7 @@ func (w *HardWork) Priority() int {
 }
 
 func (w *HardWork) Run() {
-	fmt.Println("Start:", w.name)
+	fmt.Printf("Start: %s (%d)\n", w.name, w.priority)
 	time.Sleep(time.Duration(w.duration) * time.Second)
 	fmt.Println("Done:", w.name)
 }
@@ -87,6 +86,12 @@ func main() {
 	fmt.Println("Add tasks...")
 	q.WaitGroup(ToDo)
 	fmt.Println("ToDo done!")
+
+	// just function
+	q.WaitFunc(func() {
+		fmt.Println("Just do this")
+	}, 0)
+
 	// add one more task
 	fmt.Println(".. and last task")
 	q.WaitTask(&HardWork{

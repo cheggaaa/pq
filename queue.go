@@ -22,6 +22,7 @@ type Queue struct {
 	taskRunning int32
 }
 
+// Starts work. You may add tasks only after starting queue
 func (q *Queue) Start(numWorkers int) (err error) {
 	q.m.Lock()
 	defer q.m.Unlock()
@@ -39,6 +40,7 @@ func (q *Queue) Start(numWorkers int) (err error) {
 	return
 }
 
+// Add func() to queue
 func (q *Queue) AddFunc(f func(), priority int) (err error) {
 	task := &funcTask{
 		f : f,
@@ -47,6 +49,7 @@ func (q *Queue) AddFunc(f func(), priority int) (err error) {
 	return q.AddTask(task)
 }
 
+// Add func() to queue and wait while tasks will be done
 func (q *Queue) WaitFunc(f func(), priority int) (err error) {
 	task := &funcTask{
 		f : f,
@@ -55,6 +58,7 @@ func (q *Queue) WaitFunc(f func(), priority int) (err error) {
 	return q.WaitTask(task)
 }
 
+// Just add group of tasks
 func (q *Queue) AddGroup(tasks []Task) (err error) {
 	for _, t := range tasks {
 		if err = q.AddTask(t); err != nil {
@@ -64,6 +68,7 @@ func (q *Queue) AddGroup(tasks []Task) (err error) {
 	return
 }
 
+// Add group of tasks and waits while all tasks will be done
 func (q *Queue) WaitGroup(tasks []Task) (err error) {
 	if len(tasks) == 0 {
 		return
@@ -83,11 +88,13 @@ func (q *Queue) WaitGroup(tasks []Task) (err error) {
 	return
 }
 
+// Add single task to queue
 func (q *Queue) AddTask(task Task) (err error) {
 	it := &item{task:task}
 	return q.addItem(it)
 }
 
+// Add single task to queue and waits while task will be done
 func (q *Queue) WaitTask(task Task) (err error) {
 	// add
 	it := &item{task:task, done:make(chan bool)}
@@ -99,10 +106,12 @@ func (q *Queue) WaitTask(task Task) (err error) {
 	return
 }
 
+// Size of queue
 func (q *Queue) Len() int {
 	return len(q.pq)
 }
 
+// How much workers do work at this moment
 func (q *Queue) TaskRunning() int {
 	return int(atomic.LoadInt32(&q.taskRunning))
 }
@@ -165,6 +174,7 @@ func (q *Queue) runTask(it *item) {
 	}
 }
 
+// Stopping queue. Wait while all workers finish current tasks
 func (q *Queue) Stop() {
 	q.m.Lock()
 	defer q.m.Unlock()

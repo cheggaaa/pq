@@ -10,7 +10,7 @@ import (
 )
 
 var ErrQueueNotStarted = fmt.Errorf("Queue not started or closed")
-var ErrQueueAlreayStarted = fmt.Errorf("Queue already started")
+var ErrQueueAlreadyStarted = fmt.Errorf("Queue already started")
 
 type Queue struct {
 	numWorkers int
@@ -27,7 +27,7 @@ func (q *Queue) Start(numWorkers int) (err error) {
 	q.m.Lock()
 	defer q.m.Unlock()
 	if q.working {
-		return ErrQueueAlreayStarted
+		return ErrQueueAlreadyStarted
 	}
 	q.numWorkers = numWorkers
 	q.pq = make(priorityQueue, 0)

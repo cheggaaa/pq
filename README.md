@@ -3,7 +3,7 @@
 
 1. Create queue   
 2. Start N workers   
-3. Execute your tasks over workers (sync or async)   
+3. Execute your tasks over workers (sync or async) Create groups of tasks (if you want)
 4. Make high priority for important tasks   
 
 ### Installation:

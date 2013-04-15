@@ -1,10 +1,12 @@
 package pq
 
+import "sync"
+
 // is a wrapper for Task
 type item struct {
 	task  Task
 	index int
-	done  chan bool
+	done  *sync.WaitGroup
 }
 
 // A PriorityQueue implements heap.Interface and holds Items.

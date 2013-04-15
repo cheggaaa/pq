@@ -3,29 +3,32 @@ package pq
 import (
 	"container/heap"
 	"fmt"
+	"log"
+	"runtime"
 	"sync"
 	"sync/atomic"
-	"runtime"
-	"log"
 )
 
 var ErrQueueNotStarted = fmt.Errorf("Queue not started or closed")
 var ErrQueueAlreadyStarted = fmt.Errorf("Queue already started")
 
 type Queue struct {
-	numWorkers int
-	pq priorityQueue
-	work chan *item
-	m sync.Mutex
-	wg sync.WaitGroup
-	working bool
+	numWorkers  int
+	pq          priorityQueue
+	work        chan *item
+	cond        *sync.Cond
+	wg          sync.WaitGroup
+	working     bool
 	taskRunning int32
 }
 
 // Starts work. You may add tasks only after starting queue
 func (q *Queue) Start(numWorkers int) (err error) {
-	q.m.Lock()
-	defer q.m.Unlock()
+	if q.cond == nil {
+		q.cond = sync.NewCond(&sync.Mutex{})
+	}
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
 	if q.working {
 		return ErrQueueAlreadyStarted
 	}
@@ -43,8 +46,8 @@ func (q *Queue) Start(numWorkers int) (err error) {
 // Add func() to queue
 func (q *Queue) AddFunc(f func(), priority int) (err error) {
 	task := &funcTask{
-		f : f,
-		p : priority,
+		f: f,
+		p: priority,
 	}
 	return q.AddTask(task)
 }
@@ -52,8 +55,8 @@ func (q *Queue) AddFunc(f func(), priority int) (err error) {
 // Add func() to queue and wait while tasks will be done
 func (q *Queue) WaitFunc(f func(), priority int) (err error) {
 	task := &funcTask{
-		f : f,
-		p : priority,
+		f: f,
+		p: priority,
 	}
 	return q.WaitTask(task)
 }
@@ -73,36 +76,35 @@ func (q *Queue) WaitGroup(tasks []Task) (err error) {
 	if len(tasks) == 0 {
 		return
 	}
-	done := make(chan bool)
+	wg := &sync.WaitGroup{}
 	for _, t := range tasks {
-		it := &item{task:t, done:done}
+		wg.Add(1)
+		it := &item{task: t, done: wg}
 		if err = q.addItem(it); err != nil {
 			return
 		}
 	}
-	l := len(tasks)
-	for l > 0 {
-		<- done
-		l--
-	}
+	wg.Wait()
 	return
 }
 
 // Add single task to queue
 func (q *Queue) AddTask(task Task) (err error) {
-	it := &item{task:task}
+	it := &item{task: task}
 	return q.addItem(it)
 }
 
 // Add single task to queue and waits while task will be done
 func (q *Queue) WaitTask(task Task) (err error) {
 	// add
-	it := &item{task:task, done:make(chan bool)}
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	it := &item{task: task, done: wg}
 	if err = q.addItem(it); err != nil {
 		return
 	}
 	// and wait
-	<- it.done
+	wg.Wait()
 	return
 }
 
@@ -117,15 +119,13 @@ func (q *Queue) TaskRunning() int {
 }
 
 func (q *Queue) addItem(it *item) (err error) {
-	q.m.Lock()
-	defer q.m.Unlock()
-	if ! q.working {
+	q.cond.L.Lock()
+	if !q.working {
 		return ErrQueueNotStarted
 	}
 	heap.Push(&q.pq, it)
-	if q.pq.Len() == 1 {
-		go q.dispatcher()
-	}
+	q.cond.L.Unlock()
+	q.cond.Signal()
 	return
 }
 
@@ -138,14 +138,13 @@ func (q *Queue) runWorkers() {
 
 func (q *Queue) dispatcher() {
 	for {
-		q.m.Lock()
-		if q.pq.Len() == 0 || ! q.working {
-			q.m.Unlock()
-			break
+		q.cond.L.Lock()
+		for q.pq.Len() == 0 {
+			q.cond.Wait()
 		}
 		it := heap.Pop(&q.pq)
 		q.work <- it.(*item)
-		q.m.Unlock()	
+		q.cond.L.Unlock()
 	}
 }
 
@@ -162,7 +161,7 @@ func (q *Queue) runTask(it *item) {
 		if r := recover(); r != nil {
 			log.Printf("PQ. Panic while executing task: %v", r)
 			if it.done != nil {
-				it.done <- true
+				it.done.Done()
 			}
 		}
 	}()
@@ -170,14 +169,14 @@ func (q *Queue) runTask(it *item) {
 	defer atomic.AddInt32(&q.taskRunning, -1)
 	it.task.Run()
 	if it.done != nil {
-		it.done <- true
+		it.done.Done()
 	}
 }
 
 // Stopping queue. Wait while all workers finish current tasks
 func (q *Queue) Stop() {
-	q.m.Lock()
-	defer q.m.Unlock()
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
 	close(q.work)
 	q.working = false
 	q.wg.Wait()

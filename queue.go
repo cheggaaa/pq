@@ -142,6 +142,9 @@ func (q *Queue) dispatcher() {
 		for q.pq.Len() == 0 {
 			q.cond.Wait()
 		}
+		if  ! q.working {
+			break
+		}
 		it := heap.Pop(&q.pq)
 		q.work <- it.(*item)
 		q.cond.L.Unlock()

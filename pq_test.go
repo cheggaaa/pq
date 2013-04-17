@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 	"sync/atomic"
+	"runtime"
+	"math/rand"
 )
 
 var inc int64
@@ -22,6 +24,10 @@ func (tt testtask) Priority() int {
 
 func sleep() {
 	time.Sleep(time.Second / 2)
+	atomic.AddInt64(&inc, 1)
+}
+
+func finc() {
 	atomic.AddInt64(&inc, 1)
 }
 
@@ -88,3 +94,37 @@ func TestGroup(t *testing.T) {
 	}
 }
 
+func BenchmarkTaskSingleThread1(b *testing.B) {	
+	benchTask(b, 1, 1, false)
+}
+func BenchmarkTaskSingleThread10(b *testing.B) {	
+	benchTask(b, 10, 1, false)
+}
+func BenchmarkTaskMultiThread1(b *testing.B) {	
+	benchTask(b, 1, runtime.NumCPU(), false)
+}
+func BenchmarkTaskMultiThread10(b *testing.B) {	
+	benchTask(b, 10, runtime.NumCPU(), false)
+}
+func BenchmarkTaskMultiThread30(b *testing.B) {	
+	benchTask(b, 30, runtime.NumCPU(), false)
+}
+func BenchmarkTaskMultiThread30RandPriority(b *testing.B) {	
+	benchTask(b, 30, runtime.NumCPU(), true)
+}
+
+func benchTask(b *testing.B, w, c int, r bool) {
+	runtime.GOMAXPROCS(c)
+	q := new(Queue)
+	q.Start(w)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		p := 0
+		if r {
+			p = rand.Intn(10)
+		}
+		q.AddFunc(finc, p)
+	}
+	q.WaitFunc(finc, -1)
+	defer q.Stop()
+}

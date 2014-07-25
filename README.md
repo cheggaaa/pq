@@ -32,10 +32,11 @@ func (w *HardWork) Priority() int {
 	return w.priority
 }
 
-func (w *HardWork) Run() {
+func (w *HardWork) Run() (err error) {
 	fmt.Printf("Start: %s (%d)\n", w.name, w.priority)
 	time.Sleep(time.Duration(w.duration) * time.Second)
 	fmt.Println("Done:", w.name)
+	return
 }
 
 var ToDo = []pq.Task{
@@ -88,8 +89,9 @@ func main() {
 	fmt.Println("ToDo done!")
 
 	// just function
-	q.WaitFunc(func() {
+	q.WaitFunc(func() error {
 		fmt.Println("Just do this")
+		return nil
 	}, 0)
 
 	// add one more task

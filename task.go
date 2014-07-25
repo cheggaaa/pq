@@ -3,12 +3,12 @@ package pq
 // task interface
 type Task interface {
 	Priority() int
-	Run()
+	Run() (err error)
 }
 
 // default task type
 type funcTask struct {
-	f func()
+	f func() error
 	p int
 }
 
@@ -16,6 +16,6 @@ func (ft *funcTask) Priority() int {
 	return ft.p
 }
 
-func (ft *funcTask) Run() {
-	ft.f()
+func (ft *funcTask) Run() (err error) {
+	return ft.f()
 }

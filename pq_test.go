@@ -14,21 +14,24 @@ type testtask struct {
 	p int
 }
 
-func (tt testtask) Run() {
+func (tt testtask) Run() (err error) {
 	sleep()
+	return
 }
 
 func (tt testtask) Priority() int {
 	return tt.p
 }
 
-func sleep() {
+func sleep() (err error) {
 	time.Sleep(time.Second / 2)
 	atomic.AddInt64(&inc, 1)
+	return
 }
 
-func finc() {
+func finc() (err error) {
 	atomic.AddInt64(&inc, 1)
+	return
 }
 
 func TestTask(t *testing.T) {
@@ -126,5 +129,6 @@ func benchTask(b *testing.B, w, c int, r bool) {
 		q.AddFunc(finc, p)
 	}
 	q.WaitFunc(finc, -1)
+	b.StopTimer()
 	defer q.Stop()
 }

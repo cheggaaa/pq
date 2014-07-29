@@ -166,8 +166,6 @@ func (q *Queue) runTask(it *item) {
 	defer atomic.AddInt32(&q.taskRunning, -1)
 	if it.can() {
 		err = it.task.Run()	
-	} else {
-		fmt.Println("cancel")
 	}
 	return
 }

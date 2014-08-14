@@ -114,6 +114,7 @@ func (q *Queue) addItem(it *item) (err error) {
 	q.cond.L.Lock()
 	if !q.working {
 		return ErrQueueNotStarted
+		q.cond.L.Unlock()
 	}
 	heap.Push(&q.pq, it)
 	q.cond.L.Unlock()
@@ -135,6 +136,7 @@ func (q *Queue) dispatcher() {
 			q.cond.Wait()
 		}
 		if !q.working {
+			q.cond.L.Unlock()
 			break
 		}
 		it := heap.Pop(&q.pq)

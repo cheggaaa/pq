@@ -34,7 +34,6 @@ func (i *item) done(err error) {
 		if i.ctrl.count <= 0 || err != nil {
 			if i.ctrl.done != nil {
 				i.ctrl.done <- err
-				i.ctrl.done = nil
 			}
 		}
 		if err != nil {

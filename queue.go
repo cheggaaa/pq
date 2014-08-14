@@ -82,6 +82,7 @@ func (q *Queue) WaitGroup(tasks []Task) (err error) {
 		for _, t := range tasks {
 			it := &item{task: t, ctrl: ctrl}
 			if err = q.addItem(it); err != nil {
+				ctrl.done <- err
 				return
 			}
 		}

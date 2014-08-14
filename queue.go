@@ -76,18 +76,20 @@ func (q *Queue) WaitGroup(tasks []Task) (err error) {
 		return
 	}
 	done := make(chan error)
-	ctrl := &itemCtrl{count:int32(len(tasks)), done : func(e error){
+	ctrl := &itemCtrl{count: int32(len(tasks)), done: func(e error) {
 		done <- e
 	}}
-	
+
 	for _, t := range tasks {
-		it := &item{task: t, ctrl:ctrl}
-		if err = q.addItem(it); err != nil {
-			return
+		it := &item{task: t, ctrl: ctrl}
+		if it.can() {
+			if err = q.addItem(it); err != nil {
+				return
+			}
 		}
 	}
-		
-	err = <- done
+
+	err = <-done
 	return
 }
 
@@ -136,7 +138,7 @@ func (q *Queue) dispatcher() {
 		for q.pq.Len() == 0 {
 			q.cond.Wait()
 		}
-		if  ! q.working {
+		if !q.working {
 			break
 		}
 		it := heap.Pop(&q.pq)
@@ -161,11 +163,11 @@ func (q *Queue) runTask(it *item) {
 		}
 		it.done(err)
 	}()
-	
+
 	atomic.AddInt32(&q.taskRunning, 1)
 	defer atomic.AddInt32(&q.taskRunning, -1)
 	if it.can() {
-		err = it.task.Run()	
+		err = it.task.Run()
 	}
 	return
 }

@@ -75,21 +75,17 @@ func (q *Queue) WaitGroup(tasks []Task) (err error) {
 	if len(tasks) == 0 {
 		return
 	}
-	done := make(chan error)
-	ctrl := &itemCtrl{count: int32(len(tasks)), done: func(e error) {
-		done <- e
-	}}
+
+	ctrl := &itemCtrl{count: int32(len(tasks)), m: new(sync.Mutex), done: make(chan error)}
 
 	for _, t := range tasks {
 		it := &item{task: t, ctrl: ctrl}
-		if it.can() {
-			if err = q.addItem(it); err != nil {
-				return
-			}
+		if err = q.addItem(it); err != nil {
+			return
 		}
 	}
 
-	err = <-done
+	err = <-ctrl.done
 	return
 }
 

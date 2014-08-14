@@ -1,6 +1,8 @@
 package pq
 
-import "sync/atomic"
+import (
+	"sync"
+)
 
 // is a wrapper for Task
 type item struct {
@@ -11,26 +13,33 @@ type item struct {
 
 type itemCtrl struct {
 	count  int32
-	done   func(err error)
+	done   chan error
+	m *sync.Mutex
 }
 
 func (i *item) can() bool {
 	if i.ctrl != nil {
-		return atomic.LoadInt32(&i.ctrl.count) > 0
+		i.ctrl.m.Lock()
+		is := i.ctrl.count > 0
+		i.ctrl.m.Unlock()
+		return is
 	}
 	return true
 }
 
 func (i *item) done(err error) {
 	if i.ctrl != nil {
-		if atomic.AddInt32(&i.ctrl.count, -1) <= 0 || err != nil {
+		i.ctrl.m.Lock()	
+		i.ctrl.count--
+		if i.ctrl.count <= 0 || err != nil {
 			if i.ctrl.done != nil {
-				i.ctrl.done(err)
+				i.ctrl.done <- err
 				i.ctrl.done = nil
 			}
 		}
 		if err != nil {
-			atomic.StoreInt32(&i.ctrl.count, -1)
+			i.ctrl.count = -1
 		}
+		i.ctrl.m.Unlock()
 	}
 }

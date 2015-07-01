@@ -115,8 +115,8 @@ func (q *Queue) TaskRunning() int {
 func (q *Queue) addItem(it *item) (err error) {
 	q.cond.L.Lock()
 	if !q.working {
-		return ErrQueueNotStarted
 		q.cond.L.Unlock()
+		return ErrQueueNotStarted
 	}
 	heap.Push(&q.pq, it)
 	q.cond.L.Unlock()
